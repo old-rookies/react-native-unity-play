@@ -1,7 +1,7 @@
-import { NativeModules, DeviceEventEmitter } from 'react-native';
+import { NativeModules, DeviceEventEmitter, NativeEventEmitter, Platform } from 'react-native';
 import MessageHandler, { UnityMessagePrefix } from "./MessageHandler";
 
-const { UnityNativeModule } = NativeModules;
+const { UnityNativeModule, RNUnity } = NativeModules;
 
 export interface UnityViewMessage {
     name: string;
@@ -105,19 +105,37 @@ class UnityModuleImpl implements UnityModule {
     private createListeners() {
         this.stringListeners = {};
         this.unityMessageListeners = {};
-        DeviceEventEmitter.addListener('onUnityMessage', message => {
-            const result = handleMessage(message);
-            if (result instanceof MessageHandler) {
-                Object.values(this.unityMessageListeners).forEach(listener => {
-                    listener(result);
-                });
-            }
-            if (typeof result === 'string') {
-                Object.values(this.stringListeners).forEach(listener => {
-                    listener(result);
-                });
-            }
-        });
+
+        if(Platform.OS === 'android') {
+            DeviceEventEmitter.addListener('onUnityMessage', message => {
+                const result = handleMessage(message);
+                if (result instanceof MessageHandler) {
+                    Object.values(this.unityMessageListeners).forEach(listener => {
+                        listener(result);
+                    });
+                }
+                if (typeof result === 'string') {
+                    Object.values(this.stringListeners).forEach(listener => {
+                        listener(result);
+                    });
+                }
+            });
+        } else {
+            const unityEmitter = new NativeEventEmitter(RNUnity);
+            unityEmitter.addListener("UnityMessage", message => {
+                const result = handleMessage(message);
+                if (result instanceof MessageHandler) {
+                    Object.values(this.unityMessageListeners).forEach(listener => {
+                        listener(result);
+                    });
+                }
+                if (typeof result === 'string') {
+                    Object.values(this.stringListeners).forEach(listener => {
+                        listener(result);
+                    });
+                }
+            })
+        }
     }
 
     private getHandleId() {
@@ -151,7 +169,11 @@ class UnityModuleImpl implements UnityModule {
     }
 
     public postMessage(gameObject: string, methodName: string, message: string) {
-        UnityNativeModule.postMessage(gameObject, methodName, message);
+        if(Platform.OS === "android") {
+            UnityNativeModule.postMessage(gameObject, methodName, message);
+        } else {
+            RNUnity.postMessage(gameObject, methodName, message);
+        }
     }
 
     public pause() {

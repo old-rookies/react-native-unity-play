@@ -15,6 +15,7 @@ RCT_EXPORT_MODULE(RNUnity)
 
 static char ** _RNUnity_argv;
 
+UnityAppController* controller;
 + (char **)argv {
     @synchronized (self) {
         return _RNUnity_argv;
@@ -73,6 +74,13 @@ static id<RNUnityFramework> _RNUnity_ufw;
     [framework runEmbeddedWithArgc: self.argc argv: self.argv appLaunchOpts: applaunchOptions];
 
     [self setUfw:framework];
+
+    if ([[self ufw] appController]) {
+        controller = [[self ufw] appController];
+        controller.unityMessageHandler = ^(const char* message) {
+            [self sendMessage:message];
+        };
+    }
 
     return self.ufw;
 }
@@ -133,7 +141,7 @@ RCT_EXPORT_METHOD(postMessage:(nonnull NSString *)gameObject
                   message:(nonnull NSString *)message) {
 
     if (_RNUnity_sharedInstance) {
-      [[RNUnity ufw] sendMessageToGOWithName:gameObject functionName:functionName message:message];
+      [[RNUnity ufw] sendMessageToGOWithName:[gameObject UTF8String] functionName:[functionName UTF8String] message:[message UTF8String]];
     }
 }
 
@@ -166,5 +174,6 @@ RCT_EXPORT_METHOD(postMessage:(nonnull NSString *)gameObject
         [[RNUnity ufw] unloadApplication];
     }
 }
+
 
 @end
